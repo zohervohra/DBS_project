@@ -35,17 +35,6 @@ const Login = () => {
       const userId = authData.user?.id;
       if (!userId) throw new Error('User ID not found after authentication.');
   
-      // Fetch all users from public.users
-      const { data: allUsers, error: fetchAllError } = await supabase
-        .from('users')
-        .select('*'); // Fetch all columns
-  
-      if (fetchAllError || !allUsers) {
-        throw new Error('Failed to fetch users. Please try again.');
-      }
-  
-      console.log('All users:', allUsers); // Log all users
-  
       // Fetch logged-in user data from public.users
       const { data: userData, error: fetchError } = await supabase
         .from('users')
@@ -61,10 +50,21 @@ const Login = () => {
         throw new Error('User is not verified. Please contact admin.');
       }
   
+      // Save the token to local storage
+      const session = authData.session;
+      if (session) {
+        localStorage.setItem('supabase_token', session.access_token);
+        localStorage.setItem('supabase_refresh_token', session.refresh_token);
+        console.log('Token saved to local storage:', session.access_token);
+      } else {
+        throw new Error('No session found after login.');
+      }
+  
       console.log('User logged in successfully:', authData.user);
       console.log('Additional user data:', userData);
   
-      // Redirect or update state accordingly
+      // Redirect to the dashboard or another page
+      router('/dashboard'); // Use the router to navigate
     } catch (err) {
       setError(err.message);
     } finally {
