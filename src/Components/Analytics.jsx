@@ -11,7 +11,7 @@ const AnalyticsDashboard = () => {
 
     useEffect(() => {
         fetchStudents();
-    }, []);table
+    }, []);
 
     const fetchStudents = async () => {
         let { data, error } = await supabase.from('students').select('*');

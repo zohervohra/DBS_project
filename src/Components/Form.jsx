@@ -79,8 +79,33 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
     }, [navigate, isEditMode]);
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+    
+        // Handle updating the form data
+        const updatedFormData = { ...formData, [name]: value };
+    
+        // Automatically update fee_outstanding if relevant fields change
+        if (
+            name === 'total_course_fee' ||
+            name.startsWith('amount_paid_')
+        ) {
+            // Recalculate the fee_outstanding
+            const totalPaid = 
+                (parseFloat(formData.amount_paid_1) || 0) +
+                (parseFloat(formData.amount_paid_2) || 0) +
+                (parseFloat(formData.amount_paid_3) || 0) +
+                (parseFloat(formData.amount_paid_4) || 0);
+    
+            const totalFee = parseFloat(updatedFormData.total_course_fee) || 0;
+    
+            const feeOutstanding = totalFee - totalPaid;
+    
+            updatedFormData.fee_outstanding = feeOutstanding >= 0 ? feeOutstanding : 0; // Ensure fee_outstanding is never negative
+        }
+    
+        setFormData(updatedFormData);
     };
+    
 
     const nextStep = () => setStep(step + 1);
     const prevStep = () => setStep(step - 1);

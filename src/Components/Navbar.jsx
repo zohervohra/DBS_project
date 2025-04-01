@@ -44,6 +44,7 @@ const Navbar = () => {
         <Link to="/" className="text-xl text-primary-content hover:text-secondary-content transition-colors duration-300">Home</Link>
         <Link to="/form" className="text-xl text-primary-content hover:text-secondary-content transition-colors duration-300">Student Form</Link>
         <Link to="/table" className="text-xl text-primary-content hover:text-secondary-content transition-colors duration-300">Students Table</Link>
+        <Link to="/analytics" className="text-xl text-primary-content hover:text-secondary-content transition-colors duration-300">Analytics</Link>
         {user ? (
           <button onClick={handleLogout} className="text-xl text-primary-content hover:text-secondary-content transition-colors duration-300">Logout</button>
         ) : (
