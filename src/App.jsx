@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
+import Home from './Components/Home';
 import SignUp from './Components/SignUp';
 import Login from './Components/Login';
 import Form from './Components/Form';
@@ -17,11 +17,14 @@ function App() {
 
   return (
     <Router>
+      
       <Navbar />
+      <div className="h-16 md:h-20"></div> {/* Spacer matching navbar height */}
+      
       <Routes>
 
         <Route path="/login" element={<Login />} />
-   
+        <Route path="/" element={<Home />} />
         <Route path="/signup" element={<SignUp />} />
 
         <Route path="/form" element={<Form />} />
@@ -34,6 +37,7 @@ function App() {
         {/* <Route path="/" element={<Login />} /> */}
       </Routes>
     </Router>
+    
   );
 }
 

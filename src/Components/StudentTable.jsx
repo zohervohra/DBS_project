@@ -78,7 +78,7 @@ const StudentTable = () => {
         <section className="bg-base-200 min-h-screen p-3 sm:p-5">
             <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
                 <div className="bg-base-100 rounded-lg shadow-lg p-6">
-                    <h1 className="text-2xl font-bold text-center mb-4 text-base-content">Student Table</h1>
+                    <h1 className="text-2xl font-bold text-center mb-4 text-base-content"> Student Records</h1>
 
                     {/* Search and Add */}
                     <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
