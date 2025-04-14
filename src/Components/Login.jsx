@@ -64,7 +64,7 @@ const Login = () => {
       console.log('Additional user data:', userData);
   
       // Redirect to the dashboard or another page
-      router('/dashboard'); // Use the router to navigate
+      router('/form'); // Use the router to navigate
     } catch (err) {
       setError(err.message);
     } finally {

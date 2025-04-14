@@ -13,46 +13,47 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
 
     const [formData, setFormData] = useState(
         initialData || {
-            // Default values for new student
-            full_name: 'Rohan Sharma',
-            email: 'rohan.sharma@example.com',
-            mobile_no: '9876543210',
-            aadhar_no: '123456789012',
-            gender: 'M',
-            date_of_birth: '2000-05-15',  // YYYY-MM-DD format
-            age: 24,
-
+            // Step 1: Personal Details
+            full_name: '',
+            email: '',
+            mobile_no: '',
+            aadhar_no: '',
+            gender: '',
+            date_of_birth: '',
+            age: '',
+    
             // Step 2: Registration Details
-            date_of_registration: '2025-03-10',  // YYYY-MM-DD format
-            mode_of_registration: 'Online',
-            qualification: 'B.Tech',
-            working_status: true,
-            family_income: 500000,
-            purpose: 'Skill Development',
-            job_required: true,
-            interest_field: 'Web Development',
-            center_name: 'VTC Vithalwadi',
-
+            date_of_registration: '',
+            mode_of_registration: '',
+            qualification: '',
+            working_status: false,
+            family_income: '',
+            purpose: '',
+            job_required: false,
+            interest_field: '',
+            center_name: '',
+    
             // Step 3: Course & Payment Details
-            course_name: 'FullStack ',
-            total_course_fee: 50000,
-            nsdc_certificate_fees: 5000,
-            amount_paid_1: 15000,
-            amount_paid_2: 10000,
-            amount_paid_3: 5000,
-            amount_paid_4: 5000,
-            fee_outstanding: 15000,
-            receipt_number: 'REC123456',
-            bank_utr_1: 'UTR987654321',
-            fee_receipt_date_1: '2025-03-01',
-            bank_utr_2: 'UTR123456789',
-            fee_receipt_date_2: '2025-03-05',
-            bank_utr_3: 'UTR567891234',
-            fee_receipt_date_3: '2025-03-10',
-            bank_utr_4: 'UTR234567890',
-            fee_receipt_date_4: '2025-03-12',
+            course_name: '',
+            total_course_fee: '',
+            nsdc_certificate_fees: '',
+            amount_paid_1: '',
+            amount_paid_2: '',
+            amount_paid_3: '',
+            amount_paid_4: '',
+            fee_outstanding: '',
+            receipt_number: '',
+            bank_utr_1: '',
+            fee_receipt_date_1: '',
+            bank_utr_2: '',
+            fee_receipt_date_2: '',
+            bank_utr_3: '',
+            fee_receipt_date_3: '',
+            bank_utr_4: '',
+            fee_receipt_date_4: '',
         }
     );
+    
 
 
 

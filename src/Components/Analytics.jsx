@@ -86,19 +86,58 @@ const commonBarOptions = {
 const AnalyticsDashboard = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const dashboardRef = useRef(null);
-
+  
   useEffect(() => {
     fetchStudents();
   }, []);
-
+  
   const fetchStudents = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('students').select('*');
-    if (error) console.error(error);
-    else setStudents(data);
+  
+    // Step 1: Get current logged-in user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+  
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      setLoading(false);
+      return;
+    }
+  
+    // Step 2: Fetch user info from 'users' table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('admin, center_name')
+      .eq('id', user.id)
+      .single();
+  
+    if (userError) {
+      console.error("User fetch error:", userError);
+      setLoading(false);
+      return;
+    }
+  
+    // Step 3: Fetch students based on admin flag
+    let query = supabase.from('students').select('*');
+  
+    if (!userData.admin) {
+      query = query.eq('center_name', userData.center_name);
+    }
+  
+    const { data: studentsData, error: studentError } = await query;
+  
+    if (studentError) {
+      console.error("Student fetch error:", studentError);
+    } else {
+      setStudents(studentsData);
+    }
+  
     setLoading(false);
   };
+  
+  const dashboardRef = useRef(null);
 
   // Generate PDF report
   // Generate PDF report
@@ -399,7 +438,7 @@ const AnalyticsDashboard = () => {
       </div>
     </div>
   );
-
+if(students.length !== 0){
   return (
     <div className="min-h-screen bg-gray-50" ref={dashboardRef}>
       <div className="container mx-auto px-4 py-8">
@@ -508,6 +547,12 @@ const AnalyticsDashboard = () => {
           />
         </div>
       </div>
+    </div>
+  );
+}
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <h1 className="text-2xl font-bold text-gray-800">No student data available.</h1>
     </div>
   );
 };

@@ -16,26 +16,48 @@ const StudentTable = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchStudents = async () => {
-            try {
-                const token = localStorage.getItem('supabase_token');
-                if (!token) throw new Error('No token found');
-
-                const { data: user, error: authError } = await supabase.auth.getUser(token);
-                if (authError) throw new Error('Invalid token');
-
-                const { data, error: fetchError } = await supabase.from('students').select('*');
-                if (fetchError) throw new Error('Failed to fetch students');
-
-                setStudents(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchStudents();
-    }, []);
+      const fetchStudents = async () => {
+          try {
+              setLoading(true);
+  
+              const {
+                  data: { user },
+                  error: authError,
+              } = await supabase.auth.getUser();
+  
+              if (authError || !user) throw new Error('Authentication failed');
+  
+              // Fetch user info from `users` table
+              const { data: userData, error: userFetchError } = await supabase
+                  .from('users')
+                  .select('admin, center_name')
+                  .eq('id', user.id)
+                  .single();
+  
+              if (userFetchError) throw new Error('Failed to fetch user info');
+  
+              let studentQuery = supabase.from('students').select('*');
+  
+              if (!userData.admin) {
+                  // Non-admin: show only students of their center
+                  studentQuery = studentQuery.eq('center_name', userData.center_name);
+              }
+  
+              const { data: studentsData, error: studentFetchError } = await studentQuery;
+  
+              if (studentFetchError) throw new Error('Failed to fetch students');
+  
+              setStudents(studentsData);
+          } catch (err) {
+              setError(err.message);
+          } finally {
+              setLoading(false);
+          }
+      };
+  
+      fetchStudents();
+  }, []);
+  
 
     const handleSort = (key) => {
         let direction = 'asc';
