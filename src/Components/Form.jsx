@@ -53,9 +53,6 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
             fee_receipt_date_4: '',
         }
     );
-    
-
-
 
     // Check if the user is logged in on component mount
     useEffect(() => {
@@ -106,10 +103,10 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
     
         setFormData(updatedFormData);
     };
-    
 
     const nextStep = () => setStep(step + 1);
     const prevStep = () => setStep(step - 1);
+    const goToStep = (stepNumber) => setStep(stepNumber);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -150,7 +147,7 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
         }
     };
 
-    let centers = [
+    const centers = [
         "AI Zone, Kanpur",
         "Agastya Tech Zone Computer Institute, Myorpur, Duddhi, Sonbhadra",
         "Algavadi Village Panchayat",
@@ -196,16 +193,191 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
         "VTC Vithalwadi",
         "Vedanta Girls PG College - Ringas",
         "Vidyaprabhodini College"
-    ]
-    
+    ];
 
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Not provided';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-IN');
+    };
+
+    const formatBoolean = (value) => {
+        return value ? 'Yes' : 'No';
+    };
+
+    const renderReviewSection = () => {
+        return (
+            <div className="space-y-6">
+                <div className="bg-base-200 p-4 rounded-lg">
+                    <h3 className="font-bold text-lg mb-3">Personal Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Full Name</p>
+                            <p>{formData.full_name || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Email</p>
+                            <p>{formData.email || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Mobile No</p>
+                            <p>{formData.mobile_no || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Aadhar No</p>
+                            <p>{formData.aadhar_no || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Gender</p>
+                            <p>
+                                {formData.gender === 'M' ? 'Male' : 
+                                 formData.gender === 'F' ? 'Female' : 
+                                 formData.gender === 'O' ? 'Other' : 'Not provided'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Date of Birth</p>
+                            <p>{formatDate(formData.date_of_birth)}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Age</p>
+                            <p>{formData.age || 'Not provided'}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => goToStep(1)}
+                        className="mt-3 text-primary hover:underline"
+                    >
+                        Edit Personal Details
+                    </button>
+                </div>
+
+                <div className="bg-base-200 p-4 rounded-lg">
+                    <h3 className="font-bold text-lg mb-3">Registration Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Date of Registration</p>
+                            <p>{formatDate(formData.date_of_registration)}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Mode of Registration</p>
+                            <p>{formData.mode_of_registration || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Qualification</p>
+                            <p>{formData.qualification || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Working Status</p>
+                            <p>{formatBoolean(formData.working_status)}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Family Income</p>
+                            <p>{formData.family_income || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Purpose</p>
+                            <p>{formData.purpose || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Job Required</p>
+                            <p>{formatBoolean(formData.job_required)}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Interest Field</p>
+                            <p>{formData.interest_field || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Center Name</p>
+                            <p>{formData.center_name || 'Not provided'}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => goToStep(2)}
+                        className="mt-3 text-primary hover:underline"
+                    >
+                        Edit Registration Details
+                    </button>
+                </div>
+
+                <div className="bg-base-200 p-4 rounded-lg">
+                    <h3 className="font-bold text-lg mb-3">Course & Payment Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Course Name</p>
+                            <p>{formData.course_name || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Total Course Fee</p>
+                            <p>{formData.total_course_fee || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">NSDC Certificate Fees</p>
+                            <p>{formData.nsdc_certificate_fees || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Fee Outstanding</p>
+                            <p>{formData.fee_outstanding || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Receipt Number</p>
+                            <p>{formData.receipt_number || 'Not provided'}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-4">
+                        <h4 className="font-medium mb-2">Payment Details</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[1, 2, 3, 4].map((num) => (
+                                (formData[`amount_paid_${num}`] || formData[`bank_utr_${num}`] || formData[`fee_receipt_date_${num}`]) && (
+                                    <div key={num} className="bg-base-100 p-3 rounded-lg">
+                                        <p className="font-medium">Payment {num}</p>
+                                        <p>Amount: {formData[`amount_paid_${num}`] || '0'}</p>
+                                        <p>Bank UTR: {formData[`bank_utr_${num}`] || 'Not provided'}</p>
+                                        <p>Date: {formatDate(formData[`fee_receipt_date_${num}`])}</p>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => goToStep(3)}
+                        className="mt-3 text-primary hover:underline"
+                    >
+                        Edit Course & Payment Details
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="text-red-500 text-sm mt-2">{error}</div>
+                )}
+
+                <div className="flex justify-between pt-4">
+                    <button 
+                        type="button" 
+                        onClick={prevStep}
+                        className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+                    >
+                        Back
+                    </button>
+                    <button 
+                        type="submit" 
+                        className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
+                        disabled={loading}
+                    >
+                        {loading ? 'Submitting...' : 'Submit Application'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
 
     return (
-        // ... (existing JSX)
         <section className="bg-base-300 min-h-screen flex items-center justify-center">
             <div className="my-10 w-full max-w-2xl bg-base-100 rounded-lg shadow-lg p-6">
                 <h1 className="text-2xl font-bold text-base-content text-center mb-4">
-                    Student Registration {step === 1 ? ' (Step 1)' : step === 2 ? ' (Step 2)' : ' (Step 3)'}
+                    {step <= 3 ? `Student Registration (Step ${step})` : 'Review Your Application'}
                 </h1>
 
                 <form className="space-y-4" onSubmit={handleSubmit}>
@@ -435,13 +607,14 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                 ))}
                             </div>
 
-
                             <div className="flex justify-between">
                                 <button type="button" onClick={prevStep} className="bg-gray-500 text-white px-4 py-2 rounded-lg">Back</button>
-                                <button type="submit" className="bg-primary text-white px-4 py-2 rounded-lg">Submit</button>
+                                <button type="button" onClick={nextStep} className="bg-primary text-white px-4 py-2 rounded-lg">Review Application</button>
                             </div>
                         </>
                     )}
+
+                    {step === 4 && renderReviewSection()}
                 </form>
             </div>
         </section>
@@ -449,7 +622,3 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
 };
 
 export default MultiStepForm;
-
-
-
-
