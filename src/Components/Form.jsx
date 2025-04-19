@@ -21,7 +21,9 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
             gender: '',
             date_of_birth: '',
             age: '',
-    
+            address: '',
+            religion: '',
+
             // Step 2: Registration Details
             date_of_registration: '',
             mode_of_registration: '',
@@ -29,10 +31,13 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
             working_status: false,
             family_income: '',
             purpose: '',
+            prior_experience: '',
             job_required: false,
             interest_field: '',
             center_name: '',
-    
+            heard_about: '',
+            occupation: '',
+
             // Step 3: Course & Payment Details
             course_name: '',
             total_course_fee: '',
@@ -51,8 +56,26 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
             fee_receipt_date_3: '',
             bank_utr_4: '',
             fee_receipt_date_4: '',
+            batch_start_date: '',
+            batch_end_date: '',
         }
     );
+
+    // Function to calculate age from date of birth
+    const calculateAge = (dateString) => {
+        if (!dateString) return '';
+        
+        const today = new Date();
+        const birthDate = new Date(dateString);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        
+        return age.toString();
+    };
 
     // Check if the user is logged in on component mount
     useEffect(() => {
@@ -78,27 +101,32 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-    
+        
         // Handle updating the form data
         const updatedFormData = { ...formData, [name]: value };
+    
+        // If date_of_birth changes, calculate and update age
+        if (name === 'date_of_birth') {
+            updatedFormData.age = calculateAge(value);
+        }
     
         // Automatically update fee_outstanding if relevant fields change
         if (
             name === 'total_course_fee' ||
             name.startsWith('amount_paid_')
         ) {
-            // Recalculate the fee_outstanding
+            // Recalculate the fee_outstanding using the UPDATED values
             const totalPaid = 
-                (parseFloat(formData.amount_paid_1) || 0) +
-                (parseFloat(formData.amount_paid_2) || 0) +
-                (parseFloat(formData.amount_paid_3) || 0) +
-                (parseFloat(formData.amount_paid_4) || 0);
+                (parseFloat(updatedFormData.amount_paid_1) || 0) +
+                (parseFloat(updatedFormData.amount_paid_2) || 0) +
+                (parseFloat(updatedFormData.amount_paid_3) || 0) +
+                (parseFloat(updatedFormData.amount_paid_4) || 0);
     
             const totalFee = parseFloat(updatedFormData.total_course_fee) || 0;
     
             const feeOutstanding = totalFee - totalPaid;
     
-            updatedFormData.fee_outstanding = feeOutstanding >= 0 ? feeOutstanding : 0; // Ensure fee_outstanding is never negative
+            updatedFormData.fee_outstanding = feeOutstanding >= 0 ? feeOutstanding.toFixed(2) : 0; // Ensure fee_outstanding is never negative
         }
     
         setFormData(updatedFormData);
@@ -116,11 +144,25 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
         try {
             if (!user) throw new Error('User is not authenticated.');
 
+            // Prepare data with numeric fields converted from empty strings to null
+            const submissionData = {
+                ...formData,
+                total_course_fee: formData.total_course_fee || null,
+                nsdc_certificate_fees: formData.nsdc_certificate_fees || null,
+                amount_paid_1: formData.amount_paid_1 || null,
+                amount_paid_2: formData.amount_paid_2 || null,
+                amount_paid_3: formData.amount_paid_3 || null,
+                amount_paid_4: formData.amount_paid_4 || null,
+                fee_outstanding: formData.fee_outstanding || null,
+                family_income: formData.family_income || null,
+                age: formData.age || null
+            };
+
             if (isEditMode) {
                 // Update existing student
                 const { data, error: updateError } = await supabase
                     .from('students')
-                    .update({ ...formData })
+                    .update(submissionData)
                     .eq('id', studentId);
 
                 if (updateError) throw new Error(updateError.message);
@@ -131,7 +173,7 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                 // Insert new student
                 const { data, error: insertError } = await supabase
                     .from('students')
-                    .insert([{ ...formData }]);
+                    .insert([submissionData]);
 
                 if (insertError) throw new Error(insertError.message);
 
@@ -205,10 +247,18 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
         return value ? 'Yes' : 'No';
     };
 
+    const experienceLabels = {
+        none: "No prior experience",
+        beginner: "Beginner (Less than 1 year)",
+        intermediate: "Intermediate (1-3 years)",
+        advanced: "Advanced (3+ years)",
+        professional: "Professional (Working in this field)"
+    };
+
     const renderReviewSection = () => {
         return (
             <div className="space-y-6">
-                <div className="bg-base-200 p-4 rounded-lg">
+                <div className="bg-base-200 p-4 rounded-lg relative">
                     <h3 className="font-bold text-lg mb-3">Personal Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -241,18 +291,29 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-500">Age</p>
-                            <p>{formData.age || 'Not provided'}</p>
+                            <p>{formData.age ? `${formData.age} years` : 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Address</p>
+                            <p>{formData.address || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Religion</p>
+                            <p>{formData.religion || 'Not provided'}</p>
                         </div>
                     </div>
                     <button 
                         onClick={() => goToStep(1)}
-                        className="mt-3 text-primary hover:underline"
+                        className="absolute bottom-4 right-4 text-primary hover:text-primary/80"
+                        title="Edit Personal Details"
                     >
-                        Edit Personal Details
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                     </button>
                 </div>
 
-                <div className="bg-base-200 p-4 rounded-lg">
+                <div className="bg-base-200 p-4 rounded-lg relative">
                     <h3 className="font-bold text-lg mb-3">Registration Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -280,6 +341,10 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                             <p>{formData.purpose || 'Not provided'}</p>
                         </div>
                         <div>
+                            <p className="text-sm font-medium text-gray-500">Prior Experience in Field</p>
+                            <p>{experienceLabels[formData.prior_experience] || 'Not provided'}</p>
+                        </div>
+                        <div>
                             <p className="text-sm font-medium text-gray-500">Job Required</p>
                             <p>{formatBoolean(formData.job_required)}</p>
                         </div>
@@ -291,16 +356,27 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                             <p className="text-sm font-medium text-gray-500">Center Name</p>
                             <p>{formData.center_name || 'Not provided'}</p>
                         </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">How heard about us</p>
+                            <p>{formData.heard_about || 'Not provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Occupation</p>
+                            <p>{formData.occupation || 'Not provided'}</p>
+                        </div>
                     </div>
                     <button 
                         onClick={() => goToStep(2)}
-                        className="mt-3 text-primary hover:underline"
+                        className="absolute bottom-4 right-4 text-primary hover:text-primary/80"
+                        title="Edit Registration Details"
                     >
-                        Edit Registration Details
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                     </button>
                 </div>
 
-                <div className="bg-base-200 p-4 rounded-lg">
+                <div className="bg-base-200 p-4 rounded-lg relative">
                     <h3 className="font-bold text-lg mb-3">Course & Payment Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -323,6 +399,14 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                             <p className="text-sm font-medium text-gray-500">Receipt Number</p>
                             <p>{formData.receipt_number || 'Not provided'}</p>
                         </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Batch Start Date</p>
+                            <p>{formatDate(formData.batch_start_date)}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-500">Batch End Date</p>
+                            <p>{formatDate(formData.batch_end_date)}</p>
+                        </div>
                     </div>
                     
                     <div className="mt-4">
@@ -343,9 +427,12 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                     
                     <button 
                         onClick={() => goToStep(3)}
-                        className="mt-3 text-primary hover:underline"
+                        className="absolute bottom-4 right-4 text-primary hover:text-primary/80"
+                        title="Edit Course & Payment Details"
                     >
-                        Edit Course & Payment Details
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                     </button>
                 </div>
 
@@ -423,15 +510,59 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Date of Birth</label>
-                                    <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} required
-                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
+                                    <input 
+                                        type="date" 
+                                        name="date_of_birth" 
+                                        value={formData.date_of_birth} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" 
+                                    />
                                 </div>
                             </div>
 
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Age</label>
+                                    <input 
+                                        type="Age" 
+                                        name="Age" 
+                                        value={formData.age} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Religion</label>
+                                    <select 
+                                        name="religion" 
+                                        value={formData.religion} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Hindu">Hindu</option>
+                                        <option value="Muslim">Muslim</option>
+                                        <option value="Christian">Christian</option>
+                                        <option value="Sikh">Sikh</option>
+                                        <option value="Buddhist">Buddhist</option>
+                                        <option value="Jain">Jain</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div>
-                                <label className="block text-sm font-medium text-base-content mb-1">Age</label>
-                                <input type="number" name="age" value={formData.age} onChange={handleChange} required
-                                    className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
+                                <label className="block text-sm font-medium text-base-content mb-1">Address</label>
+                                <textarea 
+                                    name="address" 
+                                    value={formData.address} 
+                                    onChange={handleChange} 
+                                    required
+                                    className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content"
+                                    rows="3"
+                                />
                             </div>
 
                             <button type="button" onClick={nextStep}
@@ -464,6 +595,17 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                         className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Occupation</label>
+                                    <input 
+                                        type="text" 
+                                        name="occupation" 
+                                        value={formData.occupation} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" 
+                                    />
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Working Status</label>
                                     <select
                                         name="working_status"
@@ -477,22 +619,20 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                         <option value="false">False</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Family Income</label>
                                     <input type="text" name="family_income" value={formData.family_income} onChange={handleChange} required
                                         className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Purpose</label>
                                     <input type="text" name="purpose" value={formData.purpose} onChange={handleChange} required
                                         className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                                
                                 <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Job Required</label>
                                     <select
@@ -507,12 +647,33 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                         <option value="false">False</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-base-content mb-1">Interest Field</label>
                                     <input type="text" name="interest_field" value={formData.interest_field} onChange={handleChange} required
                                         className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Prior Experience in Field</label>
+                                    <select
+                                        name="prior_experience"
+                                        value={formData.prior_experience}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content"
+                                    >
+                                        <option value="">Select Option</option>
+                                        <option value="none">No prior experience</option>
+                                        <option value="beginner">Beginner (Less than 1 year)</option>
+                                        <option value="intermediate">Intermediate (1-3 years)</option>
+                                        <option value="advanced">Advanced (3+ years)</option>
+                                        <option value="professional">Professional (Working in this field)</option>
+                                    </select>
+                                </div>
                             </div>
+                            
                             <div>
                                 <label className="block text-sm font-medium text-base-content mb-1">Center Name</label>
                                 <select
@@ -528,6 +689,24 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">How did you hear about Vedanta Foundation?</label>
+                                    <select
+                                        name="heard_about"
+                                        value={formData.heard_about}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Friend/Family">Friend/Family</option>
+                                        <option value="Social Media">Social Media</option>
+                                        <option value="Newspaper">Newspaper</option>
+                                        <option value="Poster/Banner">Poster/Banner</option>
+                                        <option value="Center Visit">Center Visit</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
 
                             <div className="flex justify-between">
                                 <button type="button" onClick={prevStep} className="bg-gray-500 text-white px-4 py-2 rounded-lg">Back</button>
@@ -578,6 +757,32 @@ const MultiStepForm = ({ initialData, isEditMode, studentId }) => {
                                 <input type="text" name="receipt_number" value={formData.receipt_number} onChange={handleChange} required
                                     className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" />
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Batch Start Date</label>
+                                    <input 
+                                        type="date" 
+                                        name="batch_start_date" 
+                                        value={formData.batch_start_date} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-base-content mb-1">Batch End Date</label>
+                                    <input 
+                                        type="date" 
+                                        name="batch_end_date" 
+                                        value={formData.batch_end_date} 
+                                        onChange={handleChange} 
+                                        required
+                                        className="w-full p-2.5 border rounded-lg bg-gray-50 text-base-content" 
+                                    />
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 gap-4">
                                 {[1, 2, 3, 4].map((num) => (
                                     <div key={num} className="grid grid-cols-2 gap-4">

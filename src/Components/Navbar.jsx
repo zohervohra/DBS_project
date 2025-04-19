@@ -39,7 +39,8 @@ const Navbar = () => {
 
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'py-2 bg-primary/90 backdrop-blur-sm shadow-lg' : 'py-4 bg-primary'} border-b-2 border-neutral`}>
-      <div className="container mx-auto px-4 flex justify-between items-center">
+      <div className="w-full px-4 flex justify-between items-center">
+
         <Link to="/" className="flex items-center">
           {/* Logo with optional text */}
           {/* Logo image */}

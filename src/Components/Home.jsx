@@ -26,44 +26,36 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Hero Section */}
-      <section className="flex-grow flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+      <section className="flex-grow flex flex-col px-4 py-12 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <img 
+            src={vedantaLogo} 
+            alt="Vedanta Foundation Logo"
+            className="h-32 w-auto rounded-lg"
+          />
+        </div>
+
+        {/* Centered Content */}
         <div className="max-w-3xl mx-auto text-center">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <img 
-              src={vedantaLogo} 
-              alt="Vedanta Foundation Logo"
-              className="h-32 w-auto rounded-lg"
-            />
-          </div>
-          
-          {/* Organization Info */}
           <h1 className="text-4xl font-bold text-gray-900 mb-6">
             Welcome to Vedanta Foundation
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Empowering students through education and career development programs.
-            We work closely with local residents and stakeholders to identify specific needs and tailor our initiatives to address those challenges effectively
+            Empowering students through education and career development programs...
           </p>
-          
-          {/* Action Buttons */}
+
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link
-              to="/login"
-              className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 transition"
-            >
+            <Link to="/login" className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 transition">
               Login to Your Account
             </Link>
-            <Link
-              to="/signup"
-              className="px-6 py-3 border border-green-600 text-green-600 font-medium rounded-lg shadow hover:bg-green-50 transition"
-            >
+            <Link to="/signup" className="px-6 py-3 border border-green-600 text-green-600 font-medium rounded-lg shadow hover:bg-green-50 transition">
               Create New Account
             </Link>
           </div>
         </div>
       </section>
-      
+
       {/* Features Section */}
       <section className="bg-white py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
