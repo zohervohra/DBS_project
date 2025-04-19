@@ -8,7 +8,8 @@ import StudentTable from './Components/StudentTable';
 import EditStudent from './Components/EditStudent';
 import Navbar from './Components/Navbar';
 import Analytics from './Components/Analytics';
-
+import Enquiry from './Components/enquiry';
+import Assessments from './Components/Assessments';
 import './App.css';  // basic event lsitenr
   // basic event lsitenr
 
@@ -33,6 +34,12 @@ function App() {
         <Route path="/editstudent/:id" element={<EditStudent/>} />
 
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/enquiry" element={<Enquiry />}/>
+        <Route path="/assessments" element={<Assessments />}/>
+        
+        
+        
+        
       
         {/* <Route path="/" element={<Login />} /> */}
       </Routes>
