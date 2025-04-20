@@ -13,7 +13,6 @@ import { Pie, Bar } from 'react-chartjs-2';
 import { supabase } from '../client';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
@@ -82,6 +81,8 @@ const AnalyticsDashboard = () => {
   const [students, setStudents] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [enquiryViewMode, setEnquiryViewMode] = useState('daily'); // 'daily', 'weekly', 'monthly'
   const dashboardRef = useRef(null);
 
   useEffect(() => {
@@ -89,310 +90,478 @@ const AnalyticsDashboard = () => {
   }, []);
 
   const fetchData = async () => {
-    setLoading(true);
-    await fetchStudents();
-    await fetchEnquiries();
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      await Promise.all([fetchStudents(), fetchEnquiries()]);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Failed to load data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchStudents = async () => {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      console.error("Auth error:", authError);
-      return;
-    }
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error(authError?.message || "User not authenticated");
+      }
 
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('admin, center_name')
-      .eq('id', user.id)
-      .single();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('admin, center_name')
+        .eq('id', user.id)
+        .single();
 
-    if (userError) {
-      console.error("User fetch error:", userError);
-      return;
-    }
+      if (userError) throw userError;
 
-    let query = supabase.from('students').select('*');
-    if (!userData.admin) {
-      query = query.eq('center_name', userData.center_name);
-    }
+      let query = supabase.from('students').select('*');
+      if (!userData.admin) {
+        query = query.eq('center_name', userData.center_name);
+      }
 
-    const { data: studentsData, error: studentError } = await query;
-    if (studentError) {
-      console.error("Student fetch error:", studentError);
-    } else {
-      setStudents(studentsData);
+      const { data: studentsData, error: studentError } = await query;
+      if (studentError) throw studentError;
+
+      console.log("Students data:", studentsData); // Debug log
+      setStudents(studentsData || []);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+      setError(`Error loading students: ${err.message}`);
+      setStudents([]);
     }
   };
 
   const fetchEnquiries = async () => {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      console.error("Auth error:", authError);
-      return;
-    }
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error(authError?.message || "User not authenticated");
+      }
 
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('admin, center_name')
-      .eq('id', user.id)
-      .single();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('admin, center_name')
+        .eq('id', user.id)
+        .single();
 
-    if (userError) {
-      console.error("User fetch error:", userError);
-      return;
-    }
+      if (userError) throw userError;
 
-    let query = supabase.from('enquiry_desk').select('*');
-    if (!userData.admin) {
-      query = query.eq('center_name', userData.center_name);
-    }
+      let query = supabase.from('enquiry_desk').select('*');
+      if (!userData.admin) {
+        query = query.eq('center_name', userData.center_name);
+      }
 
-    const { data: enquiriesData, error: enquiryError } = await query;
-    if (enquiryError) {
-      console.error("Enquiry fetch error:", enquiryError);
-    } else {
-      setEnquiries(enquiriesData);
+      const { data: enquiriesData, error: enquiryError } = await query;
+      if (enquiryError) throw enquiryError;
+
+      console.log("Enquiries data:", enquiriesData); // Debug log
+      setEnquiries(enquiriesData || []);
+    } catch (err) {
+      console.error("Error fetching enquiries:", err);
+      setError(`Error loading enquiries: ${err.message}`);
+      setEnquiries([]);
     }
   };
 
-  // Helper functions
+  // Improved date handling
   const getMonthName = (dateString) => {
-    const months = ["January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December"];
-    const date = new Date(dateString);
-    return months[date.getMonth()];
+    try {
+      if (!dateString) return "Unknown";
+      
+      const months = ["January", "February", "March", "April", "May", "June",
+                     "July", "August", "September", "October", "November", "December"];
+      
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // Try alternative format if ISO parse fails
+        const parts = String(dateString).split(/[-/T]/);
+        if (parts.length >= 2) {
+          return months[parseInt(parts[1], 10) - 1] || "Unknown";
+        }
+        return "Unknown";
+      }
+      return months[date.getMonth()];
+    } catch (e) {
+      console.error("Date parsing error:", e);
+      return "Unknown";
+    }
   };
 
-  const getWeekNumber = (date) => {
-    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
-    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  const getWeekNumber = (dateString) => {
+    try {
+      if (!dateString) return 0;
+      
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 0;
+      
+      // Copy date so don't modify original
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      // Set to nearest Thursday: current date + 4 - current day number
+      // Make Sunday's day number 7
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      // Get first day of year
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      // Calculate full weeks to nearest Thursday
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      // Return array of year and week number
+      return weekNo;
+    } catch (e) {
+      console.error("Week number calculation error:", e);
+      return 0;
+    }
   };
 
-  // Data calculations for students
+  // Data calculations with null checks
   const calculateGenderData = () => {
     return students.reduce((acc, student) => {
-      acc[student.gender === 'M' ? 'Male' : 'Female']++;
+      const gender = student.gender === 'M' ? 'Male' : 'Female';
+      acc[gender] = (acc[gender] || 0) + 1;
       return acc;
     }, { Male: 0, Female: 0 });
   };
 
   const calculateCourseData = () => {
     return students.reduce((acc, student) => {
-      acc[student.course_name] = (acc[student.course_name] || 0) + 1;
+      const course = student.course_name || 'Unknown';
+      acc[course] = (acc[course] || 0) + 1;
       return acc;
     }, {});
   };
 
-  // Data calculations for enquiries
   const calculateDailyEnquiries = () => {
-    return enquiries.reduce((acc, enquiry) => {
-      if (enquiry.created_at) {
-        const date = new Date(enquiry.created_at).toLocaleDateString();
-        acc[date] = (acc[date] || 0) + 1;
+    const result = {};
+    
+    enquiries.forEach(enquiry => {
+      try {
+        if (enquiry.created_at) {
+          const date = new Date(enquiry.created_at);
+          if (isNaN(date.getTime())) return;
+          
+          // Format date as YYYY-MM-DD for consistent grouping
+          const dateStr = date.toISOString().split('T')[0];
+          result[dateStr] = (result[dateStr] || 0) + 1;
+        }
+      } catch (e) {
+        console.error("Error processing enquiry date:", e);
       }
-      return acc;
-    }, {});
+    });
+    
+    // Sort by date
+    const sortedEntries = Object.entries(result).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    return Object.fromEntries(sortedEntries);
   };
 
   const calculateWeeklyEnquiries = () => {
-    return enquiries.reduce((acc, enquiry) => {
-      if (enquiry.created_at) {
-        const date = new Date(enquiry.created_at);
-        const weekNumber = getWeekNumber(date);
-        const weekKey = `Week ${weekNumber}`;
-        acc[weekKey] = (acc[weekKey] || 0) + 1;
+    const result = {};
+    
+    enquiries.forEach(enquiry => {
+      try {
+        if (enquiry.created_at) {
+          const date = new Date(enquiry.created_at);
+          if (isNaN(date.getTime())) return;
+          
+          const year = date.getFullYear();
+          const weekNumber = getWeekNumber(date);
+          const weekKey = `Week ${weekNumber}, ${year}`;
+          
+          result[weekKey] = (result[weekKey] || 0) + 1;
+        }
+      } catch (e) {
+        console.error("Error processing weekly enquiry:", e);
       }
-      return acc;
-    }, {});
+    });
+    
+    // Sort by week
+    const sortedEntries = Object.entries(result).sort((a, b) => {
+      const [weekA, yearA] = a[0].match(/\d+/g).map(Number);
+      const [weekB, yearB] = b[0].match(/\d+/g).map(Number);
+      
+      if (yearA !== yearB) return yearA - yearB;
+      return weekA - weekB;
+    });
+    
+    return Object.fromEntries(sortedEntries);
   };
 
   const calculateMonthlyEnquiries = () => {
-    return enquiries.reduce((acc, enquiry) => {
-      if (enquiry.created_at) {
-        const monthName = getMonthName(enquiry.created_at);
-        acc[monthName] = (acc[monthName] || 0) + 1;
+    const result = {};
+    
+    enquiries.forEach(enquiry => {
+      try {
+        if (enquiry.created_at) {
+          const date = new Date(enquiry.created_at);
+          if (isNaN(date.getTime())) return;
+          
+          const monthName = getMonthName(date);
+          const year = date.getFullYear();
+          const monthKey = `${monthName} ${year}`;
+          
+          result[monthKey] = (result[monthKey] || 0) + 1;
+        }
+      } catch (e) {
+        console.error("Error processing monthly enquiry:", e);
       }
-      return acc;
-    }, {});
+    });
+    
+    // Sort by month
+    const monthOrder = ["January", "February", "March", "April", "May", "June", 
+                       "July", "August", "September", "October", "November", "December"];
+    
+    const sortedEntries = Object.entries(result).sort((a, b) => {
+      const [aMonth, aYear] = a[0].split(' ');
+      const [bMonth, bYear] = b[0].split(' ');
+      
+      if (aYear !== bYear) return parseInt(aYear) - parseInt(bYear);
+      return monthOrder.indexOf(aMonth) - monthOrder.indexOf(bMonth);
+    });
+    
+    return Object.fromEntries(sortedEntries);
   };
 
-  // Student data
+  // Student data with fallbacks
   const genderData = calculateGenderData();
   const totalGender = genderData.Male + genderData.Female;
   const courseData = calculateCourseData();
 
   const monthlyData = students.reduce((acc, student) => {
-    if (student.date_of_registration) {
-      const monthName = getMonthName(student.date_of_registration);
-      acc[monthName] = (acc[monthName] || 0) + 1;
+    try {
+      if (student.date_of_registration) {
+        const monthName = getMonthName(student.date_of_registration);
+        acc[monthName] = (acc[monthName] || 0) + 1;
+      }
+    } catch (e) {
+      console.error("Error processing student registration:", e);
     }
     return acc;
   }, {});
 
-  // Enquiry data
+  // Enquiry data with fallbacks
   const dailyEnquiryData = calculateDailyEnquiries();
   const weeklyEnquiryData = calculateWeeklyEnquiries();
   const monthlyEnquiryData = calculateMonthlyEnquiries();
 
-  // Chart data for students
-  const genderChartData = {
-    labels: ['Male', 'Female'],
-    datasets: [{
-      data: Object.values(genderData),
-      backgroundColor: [pieChartPalette.primary, pieChartPalette.accent],
-      borderColor: ['#fff'],
-      borderWidth: 1
-    }],
+  // Combined Enquiry Chart Data
+  const generateEnquiryChartData = () => {
+    let labels = [];
+    let values = [];
+    let backgroundColor = barChartPalette.primary;
+    let label = 'Daily Enquiries';
+    
+    switch (enquiryViewMode) {
+      case 'weekly':
+        labels = Object.keys(weeklyEnquiryData);
+        values = Object.values(weeklyEnquiryData);
+        backgroundColor = barChartPalette.secondary;
+        label = 'Weekly Enquiries';
+        break;
+      case 'monthly':
+        labels = Object.keys(monthlyEnquiryData);
+        values = Object.values(monthlyEnquiryData);
+        backgroundColor = barChartPalette.accent;
+        label = 'Monthly Enquiries';
+        break;
+      default: // daily
+        labels = Object.keys(dailyEnquiryData);
+        values = Object.values(dailyEnquiryData);
+        backgroundColor = barChartPalette.primary;
+        label = 'Daily Enquiries';
+    }
+    
+    return {
+      labels,
+      datasets: [{
+        label,
+        data: values,
+        backgroundColor,
+        borderRadius: 4
+      }],
+    };
   };
 
-  const monthlyChartData = {
-    labels: Object.keys(monthlyData),
-    datasets: [{
-      label: 'Registrations',
-      data: Object.values(monthlyData),
-      backgroundColor: barChartPalette.info,
-      borderRadius: 4
-    }],
+  // Chart data generators with empty state handling
+  const generateGenderChartData = () => {
+    const data = {
+      labels: ['Male', 'Female'],
+      datasets: [{
+        data: [genderData.Male, genderData.Female],
+        backgroundColor: [pieChartPalette.primary, pieChartPalette.accent],
+        borderColor: ['#fff'],
+        borderWidth: 1
+      }],
+    };
+    return totalGender > 0 ? data : null;
   };
 
-  const courseChartData = {
-    labels: Object.keys(courseData),
-    datasets: [{
-      label: 'Students',
-      data: Object.values(courseData),
-      backgroundColor: barChartPalette.secondary,
-      borderRadius: 4
-    }],
+  const generateMonthlyChartData = () => {
+    const labels = Object.keys(monthlyData).filter(k => k !== 'Unknown');
+    const values = labels.map(label => monthlyData[label]);
+    
+    return labels.length > 0 ? {
+      labels,
+      datasets: [{
+        label: 'Registrations',
+        data: values,
+        backgroundColor: barChartPalette.info,
+        borderRadius: 4
+      }],
+    } : null;
   };
 
-  // Income groups
+  const generateCourseChartData = () => {
+    const labels = Object.keys(courseData).filter(k => k !== 'Unknown');
+    const values = labels.map(label => courseData[label]);
+    
+    return labels.length > 0 ? {
+      labels,
+      datasets: [{
+        label: 'Students',
+        data: values,
+        backgroundColor: barChartPalette.secondary,
+        borderRadius: 4
+      }],
+    } : null;
+  };
+
+  // Income groups with null checks
   const incomeGroups = { '<2L': 0, '2L-4L': 0, '4L+': 0 };
   students.forEach(student => {
-    if (student.family_income < 200000) incomeGroups['<2L']++;
-    else if (student.family_income <= 400000) incomeGroups['2L-4L']++;
-    else incomeGroups['4L+']++;
+    try {
+      const income = Number(student.family_income) || 0;
+      if (income < 200000) incomeGroups['<2L']++;
+      else if (income <= 400000) incomeGroups['2L-4L']++;
+      else incomeGroups['4L+']++;
+    } catch (e) {
+      console.error("Error processing income data:", e);
+    }
   });
 
-  const incomeChartData = {
-    labels: Object.keys(incomeGroups),
-    datasets: [{
-      data: Object.values(incomeGroups),
-      backgroundColor: [pieChartPalette.primary, pieChartPalette.accent, pieChartPalette.secondary],
-      borderColor: ['#fff'],
-      borderWidth: 1
-    }],
+  const generateIncomeChartData = () => {
+    const totalIncome = Object.values(incomeGroups).reduce((a, b) => a + b, 0);
+    return totalIncome > 0 ? {
+      labels: Object.keys(incomeGroups),
+      datasets: [{
+        data: Object.values(incomeGroups),
+        backgroundColor: [pieChartPalette.primary, pieChartPalette.accent, pieChartPalette.secondary],
+        borderColor: ['#fff'],
+        borderWidth: 1
+      }],
+    } : null;
   };
 
-  // Age groups
+  // Age groups with null checks
   const ageGroups = { '16+': 0, '18+': 0, '22+': 0, '24+': 0 };
   students.forEach(student => {
-    if (student.age >= 16) ageGroups['16+']++;
-    if (student.age >= 18) ageGroups['18+']++;
-    if (student.age >= 22) ageGroups['22+']++;
-    if (student.age >= 24) ageGroups['24+']++;
+    try {
+      const age = Number(student.age) || 0;
+      if (age >= 16) ageGroups['16+']++;
+      if (age >= 18) ageGroups['18+']++;
+      if (age >= 22) ageGroups['22+']++;
+      if (age >= 24) ageGroups['24+']++;
+    } catch (e) {
+      console.error("Error processing age data:", e);
+    }
   });
 
-  const ageChartData = {
-    labels: Object.keys(ageGroups),
-    datasets: [{
-      label: 'Students',
-      data: Object.values(ageGroups),
-      backgroundColor: barChartPalette.accent,
-      borderRadius: 4
-    }],
+  const generateAgeChartData = () => {
+    const totalAges = Object.values(ageGroups).reduce((a, b) => a + b, 0);
+    return totalAges > 0 ? {
+      labels: Object.keys(ageGroups),
+      datasets: [{
+        label: 'Students',
+        data: Object.values(ageGroups),
+        backgroundColor: barChartPalette.accent,
+        borderRadius: 4
+      }],
+    } : null;
   };
 
-  // Job requirements
-  const jobData = students.reduce((acc, student) => {
-    acc[student.job_required ? 'Job Required' : 'Not Required']++;
-    return acc;
-  }, { 'Job Required': 0, 'Not Required': 0 });
+  // Job requirements with null checks
+  const jobData = { 'Job Required': 0, 'Not Required': 0 };
+  students.forEach(student => {
+    try {
+      const needsJob = Boolean(student.job_required);
+      jobData[needsJob ? 'Job Required' : 'Not Required']++;
+    } catch (e) {
+      console.error("Error processing job data:", e);
+    }
+  });
 
-  const jobChartData = {
-    labels: Object.keys(jobData),
-    datasets: [{
-      data: Object.values(jobData),
-      backgroundColor: [pieChartPalette.error, pieChartPalette.neutral],
-      borderColor: ['#fff'],
-      borderWidth: 1
-    }],
+  const generateJobChartData = () => {
+    const totalJobs = Object.values(jobData).reduce((a, b) => a + b, 0);
+    return totalJobs > 0 ? {
+      labels: Object.keys(jobData),
+      datasets: [{
+        data: Object.values(jobData),
+        backgroundColor: [pieChartPalette.error, pieChartPalette.neutral],
+        borderColor: ['#fff'],
+        borderWidth: 1
+      }],
+    } : null;
   };
 
-  // Working status
-  const workingData = students.reduce((acc, student) => {
-    acc[student.working_status ? 'Working' : 'Non-Working']++;
-    return acc;
-  }, { 'Working': 0, 'Non-Working': 0 });
+  // Working status with null checks
+  const workingData = { 'Working': 0, 'Non-Working': 0 };
+  students.forEach(student => {
+    try {
+      const isWorking = Boolean(student.working_status);
+      workingData[isWorking ? 'Working' : 'Non-Working']++;
+    } catch (e) {
+      console.error("Error processing working status:", e);
+    }
+  });
 
-  const workingChartData = {
-    labels: Object.keys(workingData),
-    datasets: [{
-      data: Object.values(workingData),
-      backgroundColor: [pieChartPalette.pink, pieChartPalette.purple],
-      borderColor: ['#fff'],
-      borderWidth: 1
-    }],
+  const generateWorkingChartData = () => {
+    const totalWorking = Object.values(workingData).reduce((a, b) => a + b, 0);
+    return totalWorking > 0 ? {
+      labels: Object.keys(workingData),
+      datasets: [{
+        data: Object.values(workingData),
+        backgroundColor: [pieChartPalette.pink, pieChartPalette.purple],
+        borderColor: ['#fff'],
+        borderWidth: 1
+      }],
+    } : null;
   };
 
-  // Chart data for enquiries
-  const dailyEnquiryChartData = {
-    labels: Object.keys(dailyEnquiryData),
-    datasets: [{
-      label: 'Daily Enquiries',
-      data: Object.values(dailyEnquiryData),
-      backgroundColor: barChartPalette.primary,
-      borderRadius: 4
-    }],
-  };
-
-  const weeklyEnquiryChartData = {
-    labels: Object.keys(weeklyEnquiryData),
-    datasets: [{
-      label: 'Weekly Enquiries',
-      data: Object.values(weeklyEnquiryData),
-      backgroundColor: barChartPalette.secondary,
-      borderRadius: 4
-    }],
-  };
-
-  const monthlyEnquiryChartData = {
-    labels: Object.keys(monthlyEnquiryData),
-    datasets: [{
-      label: 'Monthly Enquiries',
-      data: Object.values(monthlyEnquiryData),
-      backgroundColor: barChartPalette.accent,
-      borderRadius: 4
-    }],
-  };
-
-  // Chart + Summary Card Component
-  const ChartBox = ({ title, chart, summary }) => (
+  // Chart + Summary Card Component with empty state handling
+  const ChartBox = ({ title, chart, summary, children }) => (
     <div className="rounded-lg shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 bg-white">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-primary to-primary-focus">
         <h2 className="text-lg font-semibold text-white">{title}</h2>
+        {children}
       </div>
       <div className="p-4 bg-white chart-container">
-        <div className="h-64">{chart}</div>
+        {chart ? (
+          <div className="h-64">{chart}</div>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-gray-500">
+            No data available for this chart
+          </div>
+        )}
       </div>
-      <div className="p-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
-        {summary}
-      </div>
+      {summary && (
+        <div className="p-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+          {summary}
+        </div>
+      )}
     </div>
   );
 
-  // Generate PDF report
+  // Generate PDF report with error handling
   const generatePDF = async () => {
     try {
       if (students.length === 0 && enquiries.length === 0) {
-        alert("No data available!");
+        alert("No data available to generate report!");
         return;
       }
 
       const doc = new jsPDF('p', 'pt', 'a4');
       doc.setFont('helvetica', 'normal');
+      
+      // Title
       doc.setFontSize(20);
       doc.text("Analytics Report", 40, 40);
 
@@ -413,86 +582,37 @@ const AnalyticsDashboard = () => {
         }
       });
 
-      // Enquiry Summary Table
-      doc.autoTable({
-        head: [['Time Period', 'Number of Enquiries']],
-        body: [
-          ['Today', dailyEnquiryData[Object.keys(dailyEnquiryData).pop()] || 0],
-          ['This Week', weeklyEnquiryData[Object.keys(weeklyEnquiryData).pop()] || 0],
-          ['This Month', monthlyEnquiryData[Object.keys(monthlyEnquiryData).pop()] || 0],
-        ],
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
+      // Only include tables if data exists
+      if (Object.keys(courseData).length > 0) {
+        doc.autoTable({
+          head: [['Course', 'Number of Students']],
+          body: Object.keys(courseData).map(course => [course, courseData[course]]),
+          startY: doc.lastAutoTable.finalY + 20,
+          styles: { fontSize: 10 },
+          headStyles: {
+            fillColor: [111,150,93],
+            textColor: [255, 255, 255],
+          }
+        });
+      }
 
-      // Course Distribution Table
-      doc.autoTable({
-        head: [['Course', 'Number of Students']],
-        body: Object.keys(courseData).map(course => [course, courseData[course]]),
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
-
-      // Income Groups Table
-      doc.autoTable({
-        head: [['Income Group', 'Number of Students']],
-        body: Object.keys(incomeGroups).map(group => [group, incomeGroups[group]]),
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
-
-      // Age Groups Table
-      doc.autoTable({
-        head: [['Age Group', 'Number of Students']],
-        body: Object.keys(ageGroups).map(group => [group, ageGroups[group]]),
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
-
-      // Job Requirement Table
-      doc.autoTable({
-        head: [['Job Requirement', 'Number of Students']],
-        body: Object.keys(jobData).map(job => [job, jobData[job]]),
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
-
-      // Working Status Table
-      doc.autoTable({
-        head: [['Working Status', 'Number of Students']],
-        body: Object.keys(workingData).map(status => [status, workingData[status]]),
-        startY: doc.lastAutoTable.finalY + 20,
-        styles: { fontSize: 10 },
-        headStyles: {
-          fillColor: [111,150,93],
-          textColor: [255, 255, 255],
-        }
-      });
+      if (Object.keys(monthlyData).length > 0) {
+        doc.autoTable({
+          head: [['Month', 'Registrations']],
+          body: Object.keys(monthlyData).map(month => [month, monthlyData[month]]),
+          startY: doc.lastAutoTable.finalY + 20,
+          styles: { fontSize: 10 },
+          headStyles: {
+            fillColor: [111,150,93],
+            textColor: [255, 255, 255],
+          }
+        });
+      }
 
       doc.save("analytics_report.pdf");
     } catch (error) {
       console.error("PDF Generation Error:", error);
-      alert(`Failed: ${error.message}`);
+      alert(`Failed to generate PDF: ${error.message}`);
     }
   };
 
@@ -505,10 +625,40 @@ const AnalyticsDashboard = () => {
     );
   }
 
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <button
+            onClick={fetchData}
+            className="w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark transition"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
   if (students.length === 0 && enquiries.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <h1 className="text-2xl font-bold text-gray-800">No data available.</h1>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">No Data Available</h1>
+          <p className="text-gray-600 mb-6">
+            There are no students or enquiries to display. Please check your database connection.
+          </p>
+          <button
+            onClick={fetchData}
+            className="bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark transition"
+          >
+            Refresh Data
+          </button>
+        </div>
       </div>
     );
   }
@@ -542,12 +692,16 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Male Students</h3>
             <p className="text-3xl font-bold text-gray-800">{genderData.Male}</p>
-            <p className="text-sm text-gray-500">({(genderData.Male / totalGender * 100).toFixed(1)}%)</p>
+            {totalGender > 0 && (
+              <p className="text-sm text-gray-500">({(genderData.Male / totalGender * 100).toFixed(1)}%)</p>
+            )}
           </div>
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Female Students</h3>
             <p className="text-3xl font-bold text-gray-800">{genderData.Female}</p>
-            <p className="text-sm text-gray-500">({(genderData.Female / totalGender * 100).toFixed(1)}%)</p>
+            {totalGender > 0 && (
+              <p className="text-sm text-gray-500">({(genderData.Female / totalGender * 100).toFixed(1)}%)</p>
+            )}
           </div>
         </div>
 
@@ -556,22 +710,30 @@ const AnalyticsDashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Low Income Students</h3>
             <p className="text-3xl font-bold text-gray-800">{incomeGroups['<2L']}</p>
-            <p className="text-sm text-gray-500">({(incomeGroups['<2L'] / students.length * 100).toFixed(1)}%)</p>
+            {students.length > 0 && (
+              <p className="text-sm text-gray-500">({(incomeGroups['<2L'] / students.length * 100).toFixed(1)}%)</p>
+            )}
           </div>
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Job Seekers</h3>
             <p className="text-3xl font-bold text-gray-800">{jobData['Job Required']}</p>
-            <p className="text-sm text-gray-500">({(jobData['Job Required'] / students.length * 100).toFixed(1)}%)</p>
+            {students.length > 0 && (
+              <p className="text-sm text-gray-500">({(jobData['Job Required'] / students.length * 100).toFixed(1)}%)</p>
+            )}
           </div>
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Currently Working</h3>
             <p className="text-3xl font-bold text-gray-800">{workingData['Working']}</p>
-            <p className="text-sm text-gray-500">({(workingData['Working'] / students.length * 100).toFixed(1)}%)</p>
+            {students.length > 0 && (
+              <p className="text-sm text-gray-500">({(workingData['Working'] / students.length * 100).toFixed(1)}%)</p>
+            )}
           </div>
           <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
             <h3 className="text-gray-500 text-sm font-medium">Adult Students (18+)</h3>
             <p className="text-3xl font-bold text-gray-800">{ageGroups['18+']}</p>
-            <p className="text-sm text-gray-500">({(ageGroups['18+'] / students.length * 100).toFixed(1)}%)</p>
+            {students.length > 0 && (
+              <p className="text-sm text-gray-500">({(ageGroups['18+'] / students.length * 100).toFixed(1)}%)</p>
+            )}
           </div>
         </div>
 
@@ -582,69 +744,94 @@ const AnalyticsDashboard = () => {
             <>
               <ChartBox
                 title="Gender Distribution"
-                summary={`${genderData.Male} male (${(genderData.Male / totalGender * 100).toFixed(1)}%) • ${genderData.Female} female (${(genderData.Female / totalGender * 100).toFixed(1)}%)`}
-                chart={<Pie data={genderChartData} options={commonPieOptions} />}
+                summary={totalGender > 0 ? 
+                  `${genderData.Male} male (${(genderData.Male / totalGender * 100).toFixed(1)}%) • ${genderData.Female} female (${(genderData.Female / totalGender * 100).toFixed(1)}%)` : 
+                  "No gender data available"}
+                chart={generateGenderChartData() && <Pie data={generateGenderChartData()} options={commonPieOptions} />}
               />
               
-              <ChartBox
-                title="Monthly Registrations"
-                summary={`Peak: ${Object.keys(monthlyData).reduce((a, b) => monthlyData[a] > monthlyData[b] ? a : b)} (${Math.max(...Object.values(monthlyData))} registrations)`}
-                chart={<Bar data={monthlyChartData} options={commonBarOptions} />}
-              />
+              {generateMonthlyChartData() && (
+                <ChartBox
+                  title="Monthly Registrations"
+                  summary={`Peak: ${Object.keys(monthlyData).reduce((a, b) => monthlyData[a] > monthlyData[b] ? a : b)} (${Math.max(...Object.values(monthlyData))} registrations)`}
+                  chart={<Bar data={generateMonthlyChartData()} options={commonBarOptions} />}
+                />
+              )}
               
-              <ChartBox
-                title="Students Per Course"
-                summary={`Most popular: ${Object.keys(courseData).reduce((a, b) => courseData[a] > courseData[b] ? a : b)} (${Math.max(...Object.values(courseData))} students)`}
-                chart={<Bar data={courseChartData} options={commonBarOptions} />}
-              />
+              {generateCourseChartData() && (
+                <ChartBox
+                  title="Students Per Course"
+                  summary={`Most popular: ${Object.keys(courseData).reduce((a, b) => courseData[a] > courseData[b] ? a : b)} (${Math.max(...Object.values(courseData))} students)`}
+                  chart={<Bar data={generateCourseChartData()} options={commonBarOptions} />}
+                />
+              )}
               
-              <ChartBox
-                title="Family Income"
-                summary={`<2L: ${incomeGroups['<2L']} (${(incomeGroups['<2L'] / students.length * 100).toFixed(1)}%) • 2L-4L: ${incomeGroups['2L-4L']} • 4L+: ${incomeGroups['4L+']}`}
-                chart={<Pie data={incomeChartData} options={commonPieOptions} />}
-              />
+              {generateIncomeChartData() && (
+                <ChartBox
+                  title="Family Income"
+                  summary={`<2L: ${incomeGroups['<2L']} (${(incomeGroups['<2L'] / students.length * 100).toFixed(1)}%) • 2L-4L: ${incomeGroups['2L-4L']} • 4L+: ${incomeGroups['4L+']}`}
+                  chart={<Pie data={generateIncomeChartData()} options={commonPieOptions} />}
+                />
+              )}
               
-              <ChartBox
-                title="Age Groups"
-                summary={`16+: ${ageGroups['16+']} • 18+: ${ageGroups['18+']} • 22+: ${ageGroups['22+']} • 24+: ${ageGroups['24+']}`}
-                chart={<Bar data={ageChartData} options={commonBarOptions} />}
-              />
+              {generateAgeChartData() && (
+                <ChartBox
+                  title="Age Groups"
+                  summary={`16+: ${ageGroups['16+']} • 18+: ${ageGroups['18+']} • 22+: ${ageGroups['22+']} • 24+: ${ageGroups['24+']}`}
+                  chart={<Bar data={generateAgeChartData()} options={commonBarOptions} />}
+                />
+              )}
               
-              <ChartBox
-                title="Job Requirement"
-                summary={`Job Required: ${jobData['Job Required']} (${(jobData['Job Required'] / students.length * 100).toFixed(1)}%) • Not Required: ${jobData['Not Required']}`}
-                chart={<Pie data={jobChartData} options={commonPieOptions} />}
-              />
+              {generateJobChartData() && (
+                <ChartBox
+                  title="Job Requirement"
+                  summary={`Job Required: ${jobData['Job Required']} (${(jobData['Job Required'] / students.length * 100).toFixed(1)}%) • Not Required: ${jobData['Not Required']}`}
+                  chart={<Pie data={generateJobChartData()} options={commonPieOptions} />}
+                />
+              )}
               
-              <ChartBox
-                title="Working Status"
-                summary={`Working: ${workingData['Working']} (${(workingData['Working'] / students.length * 100).toFixed(1)}%) • Non-Working: ${workingData['Non-Working']}`}
-                chart={<Pie data={workingChartData} options={commonPieOptions} />}
-              />
+              {generateWorkingChartData() && (
+                <ChartBox
+                  title="Working Status"
+                  summary={`Working: ${workingData['Working']} (${(workingData['Working'] / students.length * 100).toFixed(1)}%) • Non-Working: ${workingData['Non-Working']}`}
+                  chart={<Pie data={generateWorkingChartData()} options={commonPieOptions} />}
+                />
+              )}
             </>
           )}
 
           {/* Enquiry Charts */}
           {enquiries.length > 0 && (
-            <>
-              <ChartBox
-                title="Daily Enquiries"
-                summary={`Latest: ${Object.keys(dailyEnquiryData).pop()} (${Object.values(dailyEnquiryData).pop() || 0} enquiries)`}
-                chart={<Bar data={dailyEnquiryChartData} options={commonBarOptions} />}
-              />
-              
-              <ChartBox
-                title="Weekly Enquiries"
-                summary={`Current Week: ${Object.keys(weeklyEnquiryData).pop()} (${Object.values(weeklyEnquiryData).pop() || 0} enquiries)`}
-                chart={<Bar data={weeklyEnquiryChartData} options={commonBarOptions} />}
-              />
-              
-              <ChartBox
-                title="Monthly Enquiries"
-                summary={`Current Month: ${Object.keys(monthlyEnquiryData).pop()} (${Object.values(monthlyEnquiryData).pop() || 0} enquiries)`}
-                chart={<Bar data={monthlyEnquiryChartData} options={commonBarOptions} />}
-              />
-            </>
+            <ChartBox
+              title="Enquiries Overview"
+              summary={
+                enquiryViewMode === 'daily' ? 'Daily view showing individual days' :
+                enquiryViewMode === 'weekly' ? 'Weekly view aggregated by week' :
+                'Monthly view aggregated by month'
+              }
+              chart={<Bar data={generateEnquiryChartData()} options={commonBarOptions} />}
+            >
+              <div className="flex justify-end mt-2 space-x-2">
+                <button
+                  onClick={() => setEnquiryViewMode('daily')}
+                  className={`px-2 py-1 text-xs rounded ${enquiryViewMode === 'daily' ? 'bg-white text-primary' : 'bg-primary text-white'}`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setEnquiryViewMode('weekly')}
+                  className={`px-2 py-1 text-xs rounded ${enquiryViewMode === 'weekly' ? 'bg-white text-primary' : 'bg-primary text-white'}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setEnquiryViewMode('monthly')}
+                  className={`px-2 py-1 text-xs rounded ${enquiryViewMode === 'monthly' ? 'bg-white text-primary' : 'bg-primary text-white'}`}
+                >
+                  Monthly
+                </button>
+              </div>
+            </ChartBox>
           )}
         </div>
       </div>
